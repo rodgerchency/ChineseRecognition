@@ -19,16 +19,18 @@ from DataLoader import DataLoader
 from Util import Util
 
 import matplotlib.pyplot as plt
+import pandas as pd 
 
 tf.reset_default_graph()
 
 w = 50; h = 50
+# w = 300; h = 300
 area = w * h
 
-loader = DataLoader()
+loader = DataLoader(w, h)
 x_train, y_train = loader.getTrain()
 x_test, y_test = loader.getTest()
-# util = Util()
+util = Util()
 # util.show(x_train[10].reshape(50,50))
 # loader.showLabel(getIndex(y_train[10]))
 len_label = y_train.shape[1]
@@ -92,12 +94,17 @@ W_conv2 = weight_variable([5,5, 32, 64], 'W_conv2') # patch 5x5, in size 32, out
 b_conv2 = bias_variable([64], 'b_conv2')
 h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2) # output size 14x14x64
 h_pool2 = max_pool_2x2(h_conv2)                                         # output size 7x7x64
+print(h_pool2.shape)
 
 ## fc1 layer ##
-W_fc1 = weight_variable([13*13*64, 1024], 'W_fc1')
+size = int(h_pool2.shape[1])
+# W_fc1 = weight_variable([13*13*64, 1024], 'W_fc1')
+W_fc1 = weight_variable([size*size*64, 1024], 'W_fc1')
+# W_fc1 = weight_variable([75*75*64, 1024], 'W_fc1')
 b_fc1 = bias_variable([1024], 'b_fc1')
 # [n_samples, 7, 7, 64] ->> [n_samples, 7*7*64]
-h_pool2_flat = tf.reshape(h_pool2, [-1, 13*13*64])
+# h_pool2_flat = tf.reshape(h_pool2, [-1, 13*13*64])
+h_pool2_flat = tf.reshape(h_pool2, [-1, size*size*64])
 h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
@@ -123,22 +130,27 @@ else:
 
 model_path = "./temp/model.ckpt"
 saver = tf.train.Saver()
-with tf.Session() as sess:
-    sess.run(init)
-    # Restore model weights from previously saved model
-    saver.restore(sess, model_path)
+
+offset = 4000;
+# with tf.Session() as sess:
+#     sess.run(init)
+#     # Restore model weights from previously saved model
+#     saver.restore(sess, model_path)
     
-    for i in range(2000):
-        batch_xs, batch_ys = loader.getBatch(100)
-        # print(batch_xs[0])
-        # print(getIndex(batch_ys[0]))
-        # batch_xs, batch_ys = getRandom(x_train, y_train, 100)
-        sess.run(train_step, feed_dict={xs: batch_xs, ys: batch_ys, keep_prob: 0.5})
-        if i != 0 and i % 50 == 0:
-            print(compute_accuracy(x_test[:1000], y_test[:1000]))
-    save_path = saver.save(sess, model_path)
-    print(compute_accuracy(x_test[:1000], y_test[:1000]))
-    print('Finish')
+#     print('Start trainning')
+#     for i in range(4000):
+#         batch_xs, batch_ys = loader.getBatch(50)
+#         # print(batch_xs[0])
+#         # print(getIndex(batch_ys[0]))
+#         # batch_xs, batch_ys = getRandom(x_train, y_train, 100)
+#         sess.run(train_step, feed_dict={xs: batch_xs, ys: batch_ys, keep_prob: 0.5})
+#         if i != 0 and i % 50 == 0:
+#             print(compute_accuracy(x_test[:1000], y_test[:1000]))
+#             print(i)
+#             save_path = saver.save(sess, model_path,global_step= offset + i)
+#     save_path = saver.save(sess, model_path)
+#     print(compute_accuracy(x_test[:1000], y_test[:1000]))
+#     print('Finish')
     
     
     
@@ -151,11 +163,30 @@ with tf.Session() as sess:
 #    print("Model restored from file: %s" % save_path)
     print(compute_accuracy(x_test[:1000], y_test[:1000]))
 #    print(answer(mnist.test.images[0:1]))
-    for i in range(10):
+    gt = []
+    predict = []  
+    cntErr = 0  
+    # re = loader.getChinaResult(getIndex(y_test[0]))
+    # util.saveImg(loader.getTestImg(0), '1233.jpg')
+
+    for i in range(1000):
         ans = answer(x_test[i:i+1])
-        print(ans, getIndex(y_test[i]))
-        loader.showLabel(ans[0])
-        loader.showLabel(getIndex(y_test[i]))
+        # print(ans, getIndex(y_test[i]))
+        # p = loader.showLabel(ans[0])
+        # g = loader.showLabel(getIndex(y_test[i]))
+        p = loader.getChinaResult(ans[0])
+        g = loader.getChinaResult(getIndex(y_test[i]))
+        if p != g:
+            print(i, ans, getIndex(y_test[i]))
+            imgName = './errImg/' + str(i) + '_' + str(ans[0]) + '_' + str(getIndex(y_test[i])) + '_' + p + '_' + g +'.jpg'
+            util.saveImg(loader.getTestImg(i), imgName)
+            cntErr = cntErr + 1
+        # gt.append(g)
+        # predict.append(p)
+    print(cntErr)
+    
+    # ct = pd.crosstab(pd.Series(gt), pd.Series(predict), rownames=['label'], colnames=['predict'])
+    
           # loader.showLabel(getIndex(y_test[6]))
           # plt.imshow(x_test[5].reshape(50,50))
 #        plt.show();
